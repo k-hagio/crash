@@ -330,6 +330,10 @@ snappy: make_configure
 	@./configure -x snappy ${CONF_TARGET_FLAG} -w -b
 	@make --no-print-directory gdb_merge
 
+zstd: make_configure
+	@./configure -x zstd ${CONF_TARGET_FLAG} -w -b
+	@make --no-print-directory gdb_merge
+
 main.o: ${GENERIC_HFILES} main.c
 	${CC} -c ${CRASH_CFLAGS} main.c ${WARNING_OPTIONS} ${WARNING_ERROR} 
 
