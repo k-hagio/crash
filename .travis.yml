@@ -1,0 +1,52 @@
+os: linux
+dist: focal # cannot build matrix
+language: c
+compiler: gcc
+arch:
+  - arm64
+  - s390x
+  - ppc64le
+  - amd64
+before_install:
+  - sudo apt-get update
+  - sudo apt-get -y install wget tar patch bison libncurses-dev zlib1g-dev liblzo2-dev libsnappy-dev texinfo
+before_script:
+  - dpkg -l
+# Also need to build without lzo and snappy.
+#  - echo -e "-DLZO\n-DSNAPPY" > CFLAGS.extra
+#  - echo -e "-llzo2\n-lsnappy" > LDFLAGS.extra
+script:
+  - make warn
+  - make clean
+  - make lzo
+  - make clean
+  - make snappy
+
+jobs:
+  include:
+# This takes extra time.
+#    - os: linux # need this
+#      arch: amd64
+#      dist: focal
+#      install:
+#        - sudo apt-get -y install ubuntu-dbgsym-keyring
+#        - echo -e "deb http://ddebs.ubuntu.com $(lsb_release -cs) main restricted universe multiverse\ndeb http://ddebs.ubuntu.com $(lsb_release -cs)-updates main restricted universe multiverse\ndeb http://ddebs.ubuntu.com $(lsb_release -cs)-proposed main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/ddebs.list
+#        - sudo apt-get update
+#        - sudo apt-get -y install linux-image-5.4.0-1028-gcp-dbgsym
+#      script:
+#        - make warn
+#        - echo -e "kmem -i \n exit" | sudo ./crash /usr/lib/debug/boot/vmlinux-5.4.0-1028-gcp
+
+    # cannot build matrix
+    - os: linux
+      dist: xenial
+      arch: arm64
+    - os: linux
+      dist: xenial
+      arch: s390x
+    - os: linux
+      dist: xenial
+      arch: ppc64le
+    - os: linux
+      dist: xenial
+      arch: amd64
