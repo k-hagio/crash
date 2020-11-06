@@ -99,6 +99,11 @@
   o  On an x86_64 host, an x86_64 binary that can be used to analyze
      ppc64le dumpfiles may be built by typing "make target=PPC64".
 
+  To cross-compile the crash utility, set the makefile variable CROSS_COMPILE to
+  the prefix of the cross-compiler, e.g. like this:
+
+    $ make CROSS_COMPILE=s390x-linux-
+
   Traditionally when vmcores are compressed via the makedumpfile(8) facility
   the libz compression library is used, and by default the crash utility
   only supports libz.  Recently makedumpfile has been enhanced to optionally
