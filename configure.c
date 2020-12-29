@@ -177,9 +177,10 @@ void add_extra_lib(char *);
 #define GDB_7_0   (3)
 #define GDB_7_3_1 (4)
 #define GDB_7_6   (5)
-#define SUPPORTED_GDB_VERSIONS (GDB_7_6 + 1)
+#define GDB_10_1   (6)
+#define SUPPORTED_GDB_VERSIONS (GDB_10_1 + 1)
 
-int default_gdb = GDB_7_6;
+int default_gdb = GDB_10_1;
 
 struct supported_gdb_version {
 	char *GDB;
@@ -242,6 +243,15 @@ struct supported_gdb_version {
 	    "GDB_OFILES=${GDB_7.6_OFILES}",
 	    "GDB_PATCH_FILES=gdb-7.6.patch gdb-7.6-ppc64le-support.patch gdb-7.6-proc_service.h.patch",
 	    "GDB_FLAGS=-DGDB_7_6",
+	    "GPLv3"
+	},
+	{
+	    "GDB=gdb-10.1",
+	    "10.1",
+	    "GDB_FILES=${GDB_10.1_FILES}",
+	    "GDB_OFILES=${GDB_10.1_OFILES}",
+	    "GDB_PATCH_FILES=gdb-10.1.patch gdb-10.1-ppc64le-support.patch",
+	    "GDB_FLAGS=-DGDB_10_1",
 	    "GPLv3"
 	},
 };
@@ -1491,6 +1501,12 @@ setup_gdb_defaults(void)
 		if (strcmp(buf, "7.6") == 0) {
 			fclose(fp);
 			sp = &supported_gdb_versions[GDB_7_6];
+			fprintf(stderr, ".gdb configuration: %s\n", sp->GDB_VERSION_IN);
+			return store_gdb_defaults(sp);
+		}
+		if (strcmp(buf, "10.1") == 0) {
+			fclose(fp);
+			sp = &supported_gdb_versions[GDB_10_1];
 			fprintf(stderr, ".gdb configuration: %s\n", sp->GDB_VERSION_IN);
 			return store_gdb_defaults(sp);
 		}

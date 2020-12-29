@@ -1,0 +1,303 @@
+--- gdb-10.1/gdb/c-typeprint.c.orig
++++ gdb-10.1/gdb/c-typeprint.c
+@@ -1097,7 +1097,8 @@ c_type_print_base (struct type *type, st
+ 		  fprintf_filtered (stream, "static ");
+ 		c_print_type (TYPE_FIELD_TYPE (type, i),
+ 			      TYPE_FIELD_NAME (type, i),
+-			      stream, show - 1, level + 4,
++			      stream, strlen(TYPE_FIELD_NAME (type, i)) ?
++			      show - 1 : show, level + 4,
+ 			      &local_flags);
+ 		if (!field_is_static (&TYPE_FIELD (type, i))
+ 		    && TYPE_FIELD_PACKED (type, i))
+--- gdb-10.1/gdb/main.c.orig
++++ gdb-10.1/gdb/main.c
+@@ -929,8 +944,12 @@ captured_main_1 (struct captured_main_args
+          catch_command_errors returns non-zero on success!  */
+       if (catch_command_errors (exec_file_attach, execarg,
+ 				!batch_flag, RETURN_MASK_ALL))
++#ifdef CRASH_MERGE
++        catch_command_errors (symbol_file_add_main, symarg, 0, RETURN_MASK_ALL);
++#else
+ 	catch_command_errors (symbol_file_add_main, symarg,
+ 			      !batch_flag, RETURN_MASK_ALL);
++#endif
+     }
+   else
+     {
+@@ -992,8 +1011,12 @@ captured_main (void *data)
+ 	{
+ 	  auto_load_local_gdbinit_loaded = 1;
+ 
++#ifdef CRASH_MERGE
++          catch_command_errors (source_script, local_gdbinit, -1, RETURN_MASK_ALL);
++#else
+ 	  catch_command_errors (source_script, local_gdbinit, 0,
+ 				RETURN_MASK_ALL);
++#endif
+ 	}
+     }
+ 
+@@ -1039,6 +1062,12 @@ captured_main (void *data)
+   while (1)
+     {
+       catch_errors (captured_command_loop, 0, "", RETURN_MASK_ALL);
++#ifdef CRASH_MERGE
++      {
++        int console(char *, ...);
++        console("<CAPTURED_MAIN WHILE LOOP>\n");
++      }
++#endif
+     }
+   /* No exit -- exit is through quit_command.  */
+ }
+--- gdb-10.1/gdb/Makefile.in.orig
++++ gdb-10.1/gdb/Makefile.in
+@@ -1389,12 +1390,12 @@ $(srcdir)/copying.c: @MAINTAINER_MODE_TR
+ 	mv $(srcdir)/copying.tmp $(srcdir)/copying.c
+ 
+ version.c: stamp-version; @true
+-	rm -f version.c-tmp version.c
+-	echo '#include "version.h"' >> version.c-tmp
+-	echo 'const char version[] = "'"`sed q ${srcdir}/version.in`"'";' >> version.c-tmp
+-	echo 'const char host_name[] = "$(host_alias)";' >> version.c-tmp
+-	echo 'const char target_name[] = "$(target_alias)";' >> version.c-tmp
+-	mv version.c-tmp version.c
++	@rm -f version.c-tmp version.c
++	@echo '#include "version.h"' >> version.c-tmp
++	@echo 'const char version[] = "'"`sed q ${srcdir}/version.in`"'";' >> version.c-tmp
++	@echo 'const char host_name[] = "$(host_alias)";' >> version.c-tmp
++	@echo 'const char target_name[] = "$(target_alias)";' >> version.c-tmp
++	@mv version.c-tmp version.c
+ 
+ observer.h: observer.sh doc/observer.texi
+ 	${srcdir}/observer.sh h ${srcdir}/doc/observer.texi observer.h
+--- gdb-10.1/gdb/s390-nat.c.orig
++++ gdb-10.1/gdb/s390-nat.c
+@@ -37,6 +37,8 @@
+ #include <sys/ucontext.h>
+ #include <elf.h>
+ 
++#include <sys/uio.h>
++
+ #ifndef HWCAP_S390_HIGH_GPRS
+ #define HWCAP_S390_HIGH_GPRS 512
+ #endif
+--- gdb-10.1/bfd/bfd-in.h.orig
++++ gdb-10.1/bfd/bfd-in.h
+@@ -294,9 +294,6 @@ typedef struct bfd_section *sec_ptr;
+ 
+ #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
+ 
+-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma = (val)), ((ptr)->user_set_vma = TRUE), TRUE)
+-#define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),TRUE)
+-#define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),TRUE)
+ /* Find the address one past the end of SEC.  */
+ #define bfd_get_section_limit(bfd, sec) \
+   (((bfd)->direction != write_direction && (sec)->rawsize != 0	\
+@@ -519,7 +516,6 @@ extern void warn_deprecated (const char
+ 
+ #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
+ 
+-#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = bool), TRUE)
+ 
+ extern bfd_boolean bfd_cache_close
+   (bfd *abfd);
+--- gdb-10.1/bfd/bfd-in2.h.orig
++++ gdb-10.1/bfd/bfd-in2.h
+@@ -301,9 +301,6 @@ typedef struct bfd_section *sec_ptr;
+ 
+ #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
+ 
+-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma = (val)), ((ptr)->user_set_vma = TRUE), TRUE)
+-#define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),TRUE)
+-#define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),TRUE)
+ /* Find the address one past the end of SEC.  */
+ #define bfd_get_section_limit(bfd, sec) \
+   (((bfd)->direction != write_direction && (sec)->rawsize != 0	\
+@@ -526,7 +523,6 @@ extern void warn_deprecated (const char
+ 
+ #define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
+ 
+-#define bfd_set_cacheable(abfd,bool) (((abfd)->cacheable = bool), TRUE)
+ 
+ extern bfd_boolean bfd_cache_close
+   (bfd *abfd);
+@@ -1572,6 +1568,32 @@ struct relax_table {
+   int size;
+ };
+ 
++/* Note: the following are provided as inline functions rather than macros
++   because not all callers use the return value.  A macro implementation
++   would use a comma expression, eg: "((ptr)->foo = val, TRUE)" and some
++   compilers will complain about comma expressions that have no effect.  */
++static inline bfd_boolean
++bfd_set_section_userdata (bfd * abfd ATTRIBUTE_UNUSED, asection * ptr, void * val)
++{
++  ptr->userdata = val;
++  return TRUE;
++}
++
++static inline bfd_boolean
++bfd_set_section_vma (bfd * abfd ATTRIBUTE_UNUSED, asection * ptr, bfd_vma val)
++{
++  ptr->vma = ptr->lma = val;
++  ptr->user_set_vma = TRUE;
++  return TRUE;
++}
++
++static inline bfd_boolean
++bfd_set_section_alignment (bfd * abfd ATTRIBUTE_UNUSED, asection * ptr, unsigned int val)
++{
++  ptr->alignment_power = val;
++  return TRUE;
++}
++
+ /* These sections are global, and are managed by BFD.  The application
+    and target back end are not permitted to change the values in
+    these sections.  */
+@@ -6095,6 +6117,14 @@ struct bfd
+   unsigned int selective_search : 1;
+ };
+ 
++/* See note beside bfd_set_section_userdata.  */
++static inline bfd_boolean
++bfd_set_cacheable (bfd * abfd, bfd_boolean val)
++{
++  abfd->cacheable = val;
++  return TRUE;
++}
++
+ typedef enum bfd_error
+ {
+   bfd_error_no_error = 0,
+--- gdb-10.1/opcodes/i386-dis.c.orig
++++ gdb-10.1/opcodes/i386-dis.c
+@@ -11300,6 +11300,29 @@ get_sib (disassemble_info *info, int sizeflag)
+     }
+ }
+ 
++static char *
++check_for_extensions(struct dis_private *priv)
++{
++	unsigned char ModRM;
++
++	if ((priv->the_buffer[0] == 0x66) &&
++	    (priv->the_buffer[1] == 0x0f) &&
++	    (priv->the_buffer[2] == 0xae)) {
++		ModRM = priv->the_buffer[3];
++		if (ModRM == 0xf8)
++			return "pcommit";
++
++		switch ((ModRM >> 3))
++		{
++		case 0x6:
++			return "clwb";
++		case 0x7:
++			return "clflushopt";
++		}
++	}
++	return NULL;
++}
++
+ static int
+ print_insn (bfd_vma pc, disassemble_info *info)
+ {
+@@ -11312,6 +11335,7 @@ print_insn (bfd_vma pc, disassemble_info
+   const char *p;
+   struct dis_private priv;
+   int prefix_length;
++  char *extension;
+ 
+   priv.orig_sizeflag = AFLAG | DFLAG;
+   if ((info->mach & bfd_mach_i386_i386) != 0)
+@@ -11575,6 +11599,7 @@ print_insn (bfd_vma pc, disassemble_info
+ 
+   need_vex = 0;
+   memset (&vex, 0, sizeof (vex));
++  extension = NULL;
+ 
+   if (dp->name == NULL && dp->op[0].bytemode == FLOATCODE)
+     {
+@@ -11610,9 +11635,14 @@ print_insn (bfd_vma pc, disassemble_info
+ 	    name = prefix_name (all_prefixes[i], priv.orig_sizeflag);
+ 	    if (name == NULL)
+ 	      name = INTERNAL_DISASSEMBLER_ERROR;
+-	    (*info->fprintf_func) (info->stream, "%s", name);
+-	    return 1;
+-	  }
++	    if ((extension = check_for_extensions(&priv))) {
++    	      strcpy(obuf, extension);
++	      obufp = &obuf[strlen(obuf)];
++	    } else {
++	      (*info->fprintf_func) (info->stream, "%s", name);
++	      return 1;
++	    }
++	 }
+     }
+ 
+   /* Check if the REX prefix is used.  */
+@@ -11637,7 +11667,7 @@ print_insn (bfd_vma pc, disassemble_info
+     all_prefixes[last_data_prefix] = 0;
+ 
+   prefix_length = 0;
+-  for (i = 0; i < (int) ARRAY_SIZE (all_prefixes); i++)
++  for (i = 0; !extension && i < (int) ARRAY_SIZE (all_prefixes); i++)
+     if (all_prefixes[i])
+       {
+ 	const char *name;
+@@ -11655,7 +11685,8 @@ print_insn (bfd_vma pc, disassemble_info
+       return MAX_CODE_LENGTH;
+     }
+ 
+-  obufp = mnemonicendp;
++  if (!extension)
++    obufp = mnemonicendp;
+   for (i = strlen (obuf) + prefix_length; i < 6; i++)
+     oappend (" ");
+   oappend (" ");
+diff -up gdb-10.1/bfd/elf64-ppc.c.orig gdb-10.1/bfd/elf64-ppc.c
+--- gdb-10.1/bfd/elf64-ppc.c.orig	2016-02-02 11:04:25.436527347 -0500
++++ gdb-10.1/bfd/elf64-ppc.c	2016-02-02 11:11:51.926468454 -0500
+@@ -11743,7 +11743,7 @@ ppc64_elf_size_stubs (struct bfd_link_in
+ 	     stub_sec = stub_sec->next)
+ 	  if ((stub_sec->flags & SEC_LINKER_CREATED) == 0)
+ 	    stub_sec->size = ((stub_sec->size + (1 << htab->plt_stub_align) - 1)
+-			      & (-1 << htab->plt_stub_align));
++			      & -(1 << htab->plt_stub_align));
+ 
+       for (stub_sec = htab->stub_bfd->sections;
+ 	   stub_sec != NULL;
+@@ -12093,7 +12093,7 @@ ppc64_elf_build_stubs (bfd_boolean emit_
+ 	 stub_sec = stub_sec->next)
+       if ((stub_sec->flags & SEC_LINKER_CREATED) == 0)
+ 	stub_sec->size = ((stub_sec->size + (1 << htab->plt_stub_align) - 1)
+-			  & (-1 << htab->plt_stub_align));
++			  & -(1 << htab->plt_stub_align));
+ 
+   for (stub_sec = htab->stub_bfd->sections;
+        stub_sec != NULL;
+diff -up gdb-10.1/bfd/configure.orig gdb-10.1/bfd/configure
+--- gdb-10.1/bfd/configure.orig	2017-02-17 17:19:51.654898822 -0500
++++ gdb-10.1/bfd/configure	2017-02-17 17:19:57.922038757 -0500
+@@ -12193,7 +12193,7 @@ fi
+ 
+ NO_WERROR=
+ if test "${ERROR_ON_WARNING}" = yes ; then
+-    GCC_WARN_CFLAGS="$GCC_WARN_CFLAGS -Werror"
++    GCC_WARN_CFLAGS="$GCC_WARN_CFLAGS"
+     NO_WERROR="-Wno-error"
+ fi
+ 
+diff -up gdb-10.1/opcodes/configure.orig gdb-10.1/opcodes/configure
+--- gdb-10.1/opcodes/configure.orig	2017-02-17 17:19:08.849943016 -0500
++++ gdb-10.1/opcodes/configure	2017-02-17 17:19:23.256264699 -0500
+@@ -11539,7 +11539,7 @@ fi
+ 
+ NO_WERROR=
+ if test "${ERROR_ON_WARNING}" = yes ; then
+-    GCC_WARN_CFLAGS="$GCC_WARN_CFLAGS -Werror"
++    GCC_WARN_CFLAGS="$GCC_WARN_CFLAGS"
+     NO_WERROR="-Wno-error"
+ fi
+ 

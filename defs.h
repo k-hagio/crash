@@ -502,7 +502,6 @@ struct program_context {
 	struct sigaction gdb_sigaction; /* gdb's SIGINT sigaction. */
 	jmp_buf main_loop_env;          /* longjmp target default */
 	jmp_buf foreach_loop_env;       /* longjmp target within foreach */
-        jmp_buf gdb_interface_env;      /* longjmp target for gdb error catch */
 	struct termios termios_orig;    /* non-raw settings */
 	struct termios termios_raw;     /* while gathering command input */
 	int ncmds;                      /* number of commands in menu */
@@ -4675,13 +4674,10 @@ struct gnu_request {
 	ulong task;
 	ulong debug;
 	struct stack_hook *hookp;
-	struct global_iterator {
-    		int finished; 
-		int block_index;
-    		struct symtab *symtab;
-    		struct symbol *sym;
-    		struct objfile *obj;
-  	} global_iterator;
+	ulong lowest;
+	ulong highest;
+	void (*callback) (struct gnu_request *req, void *data);
+	void *callback_data;
 	struct load_module *lm;
 	char *member_main_type_name;
 	char *member_main_type_tag_name;
@@ -4711,7 +4707,7 @@ struct gnu_request {
 #define GNU_USER_PRINT_OPTION       (16)
 #define GNU_SET_CRASH_BLOCK         (17)
 #define GNU_GET_FUNCTION_RANGE      (18)
-#define GNU_GET_NEXT_DATATYPE       (19)
+#define GNU_ITERATE_DATATYPES       (19)
 #define GNU_LOOKUP_STRUCT_CONTENTS  (20)
 #define GNU_DEBUG_COMMAND           (100)
 /*
@@ -4736,14 +4732,15 @@ struct gnu_request {
 /*
  *  function prototypes required by modified gdb source files.
  */
-int console(char *, ...);
-int gdb_CRASHDEBUG(ulong);
+extern "C" int console(char *, ...);
+extern "C" int gdb_CRASHDEBUG(ulong);
 int gdb_readmem_callback(ulong, void *, int, int);
 void patch_load_module(struct objfile *objfile, struct minimal_symbol *msymbol);
-int patch_kernel_symbol(struct gnu_request *);
+extern "C" int patch_kernel_symbol(struct gnu_request *);
 struct syment *symbol_search(char *);
 int gdb_line_number_callback(ulong, ulong, ulong);
 int gdb_print_callback(ulong);
+extern "C" int same_file(char *, char *);
 #endif
 
 #ifndef GDB_COMMON
@@ -4757,8 +4754,8 @@ enum type_code {
   TYPE_CODE_STRUCT,             /* C struct or Pascal record */
   TYPE_CODE_UNION,              /* C union or Pascal variant part */
   TYPE_CODE_ENUM,               /* Enumeration type */
-#if defined(GDB_5_3) || defined(GDB_6_0) || defined(GDB_6_1) || defined(GDB_7_0) || defined(GDB_7_3_1) || defined(GDB_7_6)
-#if defined(GDB_7_0) || defined(GDB_7_3_1) || defined(GDB_7_6)
+#if defined(GDB_5_3) || defined(GDB_6_0) || defined(GDB_6_1) || defined(GDB_7_0) || defined(GDB_7_3_1) || defined(GDB_7_6) || defined(GDB_10_1)
+#if defined(GDB_7_0) || defined(GDB_7_3_1) || defined(GDB_7_6) || defined(GDB_10_1)
   TYPE_CODE_FLAGS,              /* Bit flags type */
 #endif
   TYPE_CODE_FUNC,               /* Function type */
@@ -5422,8 +5419,8 @@ int file_dump(ulong, ulong, ulong, int, int);
 #define DUMP_DENTRY_ONLY    0x4
 #define DUMP_EMPTY_FILE     0x8
 #define DUMP_FILE_NRPAGES  0x10
-#endif  /* !GDB_COMMON */
 int same_file(char *, char *);
+#endif  /* !GDB_COMMON */
 #ifndef GDB_COMMON
 int cleanup_memory_driver(void);
 
@@ -7030,10 +7027,10 @@ void gdb_readnow_warning(void);
 int gdb_set_crash_scope(ulong, char *);
 extern int *gdb_output_format;
 extern unsigned int *gdb_print_max;
-extern int *gdb_prettyprint_structs;
-extern int *gdb_prettyprint_arrays;
-extern int *gdb_repeat_count_threshold;
-extern int *gdb_stop_print_at_null;
+extern unsigned char *gdb_prettyprint_structs;
+extern unsigned char *gdb_prettyprint_arrays;
+extern unsigned int *gdb_repeat_count_threshold;
+extern unsigned char *gdb_stop_print_at_null;
 extern unsigned int *gdb_output_radix;
 
 /*
