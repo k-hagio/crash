@@ -560,6 +560,10 @@ arm64_dump_machdep_table(ulong arg)
 		fprintf(fp, "%sMACHDEP_BT_TEXT", others++ ? "|" : "");
 	if (machdep->flags & NEW_VMEMMAP)
 		fprintf(fp, "%sNEW_VMEMMAP", others++ ? "|" : "");
+	if (machdep->flags & FLIPPED_VM)
+		fprintf(fp, "%sFLIPPED_VM", others++ ? "|" : "");
+	if (machdep->flags & HAS_PHYSVIRT_OFFSET)
+		fprintf(fp, "%sHAS_PHYSVIRT_OFFSET", others++ ? "|" : "");
 	fprintf(fp, ")\n");
 
 	fprintf(fp, "              kvbase: %lx\n", machdep->kvbase);
@@ -994,6 +998,7 @@ arm64_calc_physvirt_offset(void)
 		if (READMEM(pc->mfd, &physvirt_offset, sizeof(physvirt_offset),
 			sp->value, sp->value -
 			machdep->machspec->kimage_voffset) > 0) {
+				machdep->flags |= HAS_PHYSVIRT_OFFSET;
 				ms->physvirt_offset = physvirt_offset;
 		}
 	}
@@ -3923,6 +3928,7 @@ arm64_calc_VA_BITS(void)
 	if (kernel_symbol_exists("vabits_actual")) {
 		if (pc->flags & PROC_KCORE) {
 			vabits_actual = symbol_value_from_proc_kallsyms("vabits_actual");
+			machdep->flags |= FLIPPED_VM;
 			if ((vabits_actual != BADVAL) && (READMEM(pc->mfd, &value, sizeof(ulong),
 		    	    vabits_actual, KCORE_USE_VADDR) > 0)) {
 				if (CRASHDEBUG(1))
@@ -3953,6 +3959,11 @@ arm64_calc_VA_BITS(void)
 				machdep->machspec->VA_BITS_ACTUAL = value;
 				machdep->machspec->VA_BITS = value;
 				machdep->machspec->VA_START = _VA_START(machdep->machspec->VA_BITS_ACTUAL);
+				/*
+				 * The mm flip commit is introduced before 52-bits VA, which is before the
+				 * commit to export NUMBER(TCR_EL1_T1SZ)
+				 */
+				machdep->flags |= FLIPPED_VM;
 			} else if (machdep->machspec->VA_BITS_ACTUAL) {
 				machdep->machspec->VA_BITS = machdep->machspec->VA_BITS_ACTUAL;
 				machdep->machspec->VA_START = _VA_START(machdep->machspec->VA_BITS_ACTUAL);
