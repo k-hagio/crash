@@ -23,6 +23,10 @@
 #include <sys/ioctl.h>
 
 #define NOT_IMPLEMENTED(X) error((X), "%s: function not implemented\n", __func__)
+/*
+ * _PAGE_OFFSET() refers to arch/arm64/include/asm/memory.h
+ */
+#define _PAGE_OFFSET(va)   (-1UL << (va))
 
 static struct machine_specific arm64_machine_specific = { 0 };
 static int arm64_verify_symbol(const char *, ulong, char);
@@ -691,6 +695,7 @@ arm64_dump_machdep_table(ulong arg)
 		fprintf(fp, "        kimage_voffset: %016lx\n", ms->kimage_voffset);
 	}
 	fprintf(fp, "           phys_offset: %lx\n", ms->phys_offset);
+	fprintf(fp, "   phys_offset_nominal: %lx\n", ms->phys_offset_nominal);
 	fprintf(fp, "__exception_text_start: %lx\n", ms->__exception_text_start);
 	fprintf(fp, "  __exception_text_end: %lx\n", ms->__exception_text_end);
 	fprintf(fp, " __irqentry_text_start: %lx\n", ms->__irqentry_text_start);
@@ -991,7 +996,17 @@ arm64_calc_physvirt_offset(void)
 	ulong physvirt_offset;
 	struct syment *sp;
 
-	ms->physvirt_offset = ms->phys_offset - ms->page_offset;
+	/* if flipped but having 'physvirt_offset', ms->physvirt_offset is overwritten in this func */
+	if (machdep->flags & FLIPPED_VM) {
+		/*
+		 * source arch/arm64/include/asm/memory.h
+		 * #define __lm_to_phys(addr)    (((addr) & ~PAGE_OFFSET) + PHYS_OFFSET)
+		 * the part "addr & ~PAGE_OFFSET" is done in arm64_VTOP()
+		 */
+		ms->physvirt_offset = ms->phys_offset_nominal;
+	} else {
+		ms->physvirt_offset = ms->phys_offset - ms->page_offset;
+	}
 
 	if ((sp = kernel_symbol_search("physvirt_offset")) &&
 			machdep->machspec->kimage_voffset) {
@@ -1007,6 +1022,8 @@ arm64_calc_physvirt_offset(void)
 static void
 arm64_calc_phys_offset(void)
 {
+#define MEMSTART_ADDR_OFFSET _PAGE_OFFSET(48) - _PAGE_OFFSET(52)
+
 	struct machine_specific *ms = machdep->machspec;
 	ulong phys_offset;
 
@@ -1033,7 +1050,11 @@ arm64_calc_phys_offset(void)
 		    ms->kimage_voffset && (sp = kernel_symbol_search("memstart_addr"))) {
 			if (pc->flags & PROC_KCORE) {
 				if ((string = pc->read_vmcoreinfo("NUMBER(PHYS_OFFSET)"))) {
-					ms->phys_offset = htol(string, QUIET, NULL);
+					ms->phys_offset_nominal = htol(string, QUIET, NULL);
+					if (ms->phys_offset_nominal < 0)
+						ms->phys_offset = ms->phys_offset_nominal + MEMSTART_ADDR_OFFSET;
+					else
+						ms->phys_offset = ms->phys_offset_nominal;
 					free(string);
 					return;
 				}
@@ -1085,7 +1106,18 @@ arm64_calc_phys_offset(void)
 	} else if (DISKDUMP_DUMPFILE() && diskdump_phys_base(&phys_offset)) {
 		ms->phys_offset = phys_offset;
 	} else if (KDUMP_DUMPFILE() && arm64_kdump_phys_base(&phys_offset)) {
-		ms->phys_offset = phys_offset;
+		/*
+		 * When running a 52bits kernel on 48bits hardware. Kernel plays a trick:
+		 * if (IS_ENABLED(CONFIG_ARM64_VA_BITS_52) && (vabits_actual != 52))
+		 *       memstart_addr -= _PAGE_OFFSET(48) - _PAGE_OFFSET(52);
+		 *
+		 * In crash, this should be detected to get a real physical start address.
+		 */
+		ms->phys_offset_nominal = phys_offset;
+		if ((long)phys_offset < 0)
+			ms->phys_offset = phys_offset + MEMSTART_ADDR_OFFSET;
+		else
+			ms->phys_offset = phys_offset;
 	} else {
 		error(WARNING,
 			"phys_offset cannot be determined from the dumpfile.\n");
@@ -1175,6 +1207,23 @@ arm64_init_kernel_pgd(void)
                 vt->kernel_pgd[i] = value;
 }
 
+ulong arm64_PTOV(ulong paddr)
+{
+	ulong v;
+	struct machine_specific *ms = machdep->machspec;
+
+	/*
+	 * Either older kernel before kernel has 'physvirt_offset' or newer kernel which
+	 * removes 'physvirt_offset' has the same formula
+	 */
+	if (!(machdep->flags & HAS_PHYSVIRT_OFFSET))
+		v = (paddr - ms->physvirt_offset) | PAGE_OFFSET;
+	else
+		v = paddr - ms->physvirt_offset;
+
+	return v;
+}
+
 ulong
 arm64_VTOP(ulong addr)
 {
@@ -1185,8 +1234,20 @@ arm64_VTOP(ulong addr)
 			return addr - machdep->machspec->kimage_voffset;
 		}
 
-		if (addr >= machdep->machspec->page_offset)
-			return addr + machdep->machspec->physvirt_offset;
+		if (addr >= machdep->machspec->page_offset) {
+			ulong paddr;
+
+			if (!(machdep->flags & FLIPPED_VM) || (machdep->flags & HAS_PHYSVIRT_OFFSET)) {
+				paddr = addr;
+			} else {
+				/*
+				 * #define __lm_to_phys(addr)	(((addr) & ~PAGE_OFFSET) + PHYS_OFFSET)
+				 */
+				paddr = addr & ~ _PAGE_OFFSET(machdep->machspec->CONFIG_ARM64_VA_BITS);
+			}
+			paddr += machdep->machspec->physvirt_offset;
+			return paddr;
+		}
 		else if (machdep->machspec->kimage_voffset)
 			return addr - machdep->machspec->kimage_voffset;
 		else /* no randomness */
