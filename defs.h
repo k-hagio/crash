@@ -6692,6 +6692,7 @@ void process_elf64_notes(void *, ulong);
 void dump_registers_for_compressed_kdump(void);
 int diskdump_kaslr_check(void);
 int diskdump_get_nr_cpus(void);
+int diskdump_get_cpu_reg(int, int, const char *, int, void *);
 QEMUCPUState *diskdump_get_qemucpustate(int);
 void diskdump_device_dump_info(FILE *);
 void diskdump_device_dump_extract(int, char *, FILE *);
