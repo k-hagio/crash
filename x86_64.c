@@ -8945,6 +8945,8 @@ x86_64_get_cpu_reg(int cpu, int regno, const char *name,
 
         if (VMSS_DUMPFILE())
                 return vmware_vmss_get_cpu_reg(cpu, regno, name, size, value);
+	else if (KDUMP_DUMPFILE())
+		return kdump_get_cpu_reg(cpu, regno, name, size, value);
 
         return FALSE;
 }

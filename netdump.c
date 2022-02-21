@@ -5301,3 +5301,54 @@ void kdump_device_dump_info(FILE *ofp)
 		devdump_info(nd->nt_vmcoredd_array[i], offset, ofp);
 	}
 }
+
+int
+kdump_get_cpu_reg(int cpu, int regno, const char *name, int size, void *value)
+{
+	Elf64_Nhdr *note64;
+	size_t len;
+	struct x86_64_user_regs_struct *regs;
+
+	if (cpu >= nd->num_prstatus_notes)
+		return FALSE;
+
+        /* All supported registers are 8 bytes long. */
+        if (size != 8)
+                return FALSE;
+
+	note64 = (Elf64_Nhdr *) nd->nt_prstatus_percpu[cpu];
+	len = sizeof(Elf64_Nhdr);
+	len = roundup(len + note64->n_namesz, 4);
+	len = roundup(len + note64->n_descsz, 4);
+	regs = (struct x86_64_user_regs_struct *)
+		(((char *)note64) + len - sizeof(struct x86_64_user_regs_struct) - sizeof(long));
+
+#define CASE(R, r) \
+		case R##_REGNUM: \
+			memcpy(value, &regs->r, size); \
+			break
+
+	switch (regno) {
+                CASE(RAX, rax);
+                CASE(RBX, rbx);
+                CASE(RCX, rcx);
+                CASE(RDX, rdx);
+                CASE(RSI, rsi);
+                CASE(RDI, rdi);
+                CASE(RBP, rbp);
+                CASE(RSP, rsp);
+                CASE(R8, r8);
+                CASE(R9, r9);
+                CASE(R10, r10);
+                CASE(R11, r11);
+                CASE(R12, r12);
+                CASE(R13, r13);
+                CASE(R14, r14);
+                CASE(R15, r15);
+                CASE(RIP, rip);
+                CASE(EFLAGS, eflags);
+		default:
+			return FALSE;
+	}
+	return TRUE;
+}

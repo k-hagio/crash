@@ -6642,6 +6642,7 @@ void *netdump_get_prstatus_percpu(int);
 int kdump_kaslr_check(void);
 void display_vmcoredd_note(void *ptr, FILE *ofp);
 int kdump_get_nr_cpus(void);
+int kdump_get_cpu_reg(int, int, const char *, int, void *);
 QEMUCPUState *kdump_get_qemucpustate(int);
 void kdump_device_dump_info(FILE *);
 void kdump_device_dump_extract(int, char *, FILE *);
