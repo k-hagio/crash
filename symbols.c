@@ -1224,6 +1224,7 @@ mod_symname_hash_install(struct syment *spn)
 		return;
 
 	index = symname_hash_index(spn->name);
+	//fprintf(fp, "%016lx %3d value %016lx name %s\n", spn, index, spn->value, spn->name);
 
 	sp = st->mod_symname_hash[index];
 
@@ -1271,6 +1272,7 @@ mod_symtable_hash_install_range(struct syment *from, struct syment *to)
 {
 	struct syment *sp;
 
+	//fprintf(fp, "from %016lx to %016lx\n", from, to);
 	for (sp = from; sp <= to; sp++)
 		mod_symname_hash_install(sp);
 }
@@ -2196,7 +2198,7 @@ store_module_symbols_6_4(ulong total, int mods_installed)
 			if (!lm->mem[t].size)
 				continue;
 
-			st->ext_module_symtable[mcnt].value = lm->mem[t].base + lm->mem[t].size;
+			st->ext_module_symtable[mcnt].value = lm->mem[t].base + lm->mem[t].size - 1;
 			st->ext_module_symtable[mcnt].type = 'm';
 			st->ext_module_symtable[mcnt].flags |= MODULE_SYMBOL;
 			sprintf(buf2, "%s%s", module_tag[t].end, mod_name);
