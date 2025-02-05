@@ -813,6 +813,9 @@ store_symbols(bfd *abfd, int dynamic, void *minisyms, long symcount,
       		bfd_get_symbol_info(abfd, sym, &syminfo);
 		name = strip_symbol_end(syminfo.name, buf);
 
+		if (STREQ(name, "xen_elfnote_phys32_entry_value"))
+			continue;
+
 		if (machdep->verify_symbol(name, syminfo.value, 
 		    syminfo.type)) {
 			if (kt->flags & (RELOC_SET|RELOC_FORCE))
