@@ -7942,14 +7942,15 @@ dump_hrtimer_clock_base(const void *hrtimer_bases, const int num)
 	void *base;
 	ulonglong current_time, now;
 	ulonglong offset;
-	ulong get_time;
+	ulong get_time = 0;
 	char buf[BUFSIZE];
 
 	base = (void *)hrtimer_bases + OFFSET(hrtimer_cpu_base_clock_base) +
 		SIZE(hrtimer_clock_base) * num;
-	readmem((ulong)(base + OFFSET(hrtimer_clock_base_get_time)), KVADDR,
-		&get_time, sizeof(get_time), "hrtimer_clock_base get_time",
-		FAULT_ON_ERROR);
+	if (VALID_MEMBER(hrtimer_clock_base_get_time))
+		readmem((ulong)(base + OFFSET(hrtimer_clock_base_get_time)), KVADDR,
+			&get_time, sizeof(get_time), "hrtimer_clock_base get_time",
+			FAULT_ON_ERROR);
 	fprintf(fp, "  CLOCK: %d  HRTIMER_CLOCK_BASE: %lx  [%s]\n", num, 
 		(ulong)base, value_to_symstr(get_time, buf, 0));
 
