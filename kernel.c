@@ -3830,8 +3830,9 @@ module_init(void)
                 	nsyms = UINT(modbuf + OFFSET(module_nsyms));
 			break;
 		case KMOD_V2: 
-                	nsyms = UINT(modbuf + OFFSET(module_num_syms)) +
-				UINT(modbuf + OFFSET(module_num_gpl_syms));
+			nsyms = UINT(modbuf + OFFSET(module_num_syms));
+			if (VALID_MEMBER(module_num_gpl_syms))
+				nsyms += UINT(modbuf + OFFSET(module_num_gpl_syms));
 			break;
 		}
 
